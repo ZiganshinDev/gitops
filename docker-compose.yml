@@ -1,0 +1,84 @@
+version: '3'
+
+services:
+  postgres-dev:
+    ports:
+      - 8001:5432
+    image: postgres:11.4
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_USER: postgres
+    volumes:
+      - pg-data:/var/lib/postgresql/data/
+
+  pgadmin-dev:
+    ports:
+      - 82:80
+    image: dpage/pgadmin4
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=your@mail.com
+      - PGADMIN_DEFAULT_PASSWORD=postgresmaster
+
+  jaeger-dev:
+    ports:
+      - 5775:5775/udp
+      - 6831:6831/udp 
+      - 6832:6832/udp
+      - 5778:5778
+      - 16686:16686
+      - 14268:14268
+      - 9411:9411
+    image: jaegertracing/all-in-one:1.6.0
+    environment:
+      COLLECTOR_ZIPKIN_HTTP_PORT: 9411
+
+  rabbit-dev:
+    ports:
+      - 5672:5672
+      - 15672:15672
+    image: rabbitmq:4.0-management
+  
+  redis-dev:
+    image: redis:latest
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - REDIS_USER=${REDIS_USER}
+      - REDIS_USER_PASSWORD=${REDIS_USER_PASSWORD}
+    ports:
+      - "6380:6379"
+    volumes:
+      - ./redisdata:/data
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    command: >
+      sh -c '
+        mkdir -p /usr/local/etc/redis &&
+        echo "bind 0.0.0.0" > /usr/local/etc/redis/redis.conf &&
+        echo "requirepass $REDIS_PASSWORD" >> /usr/local/etc/redis/redis.conf &&
+        echo "appendonly yes" >> /usr/local/etc/redis/redis.conf &&
+        echo "appendfsync everysec" >> /usr/local/etc/redis/redis.conf &&
+        echo "user default on nopass ~* +@all" > /usr/local/etc/redis/users.acl &&
+        echo "user $REDIS_USER on >$REDIS_USER_PASSWORD ~* +@all" >> /usr/local/etc/redis/users.acl &&
+        redis-server /usr/local/etc/redis/redis.conf --aclfile /usr/local/etc/redis/users.acl
+      '
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "$REDIS_PASSWORD", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    tty: true
+    stdin_open: true
+
+networks:
+  default:
+    name: tat-network
+    external: true
+
+volumes:
+  pg-data:
