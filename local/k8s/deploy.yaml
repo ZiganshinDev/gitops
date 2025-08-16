@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name:  labubu-shop
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: labubu-shop
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app:  labubu-shop
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9090"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+      - name:  labubu-shop
+        image:  labubu-shop:dev
+        imagePullPolicy: Never
+        env:
+          - name: PG_URI
+            value: postgres://labubushop:20072025labubu@@192.168.49.5:5432/labubushop?connect_timeout=15&sslmode=disable
+        resources:
+          requests:
+            cpu: 10m
+            memory: 25Mi
+          limits:
+            cpu: 300m
+            memory: 50Mi
+        readinessProbe:
+            initialDelaySeconds: 15
+            periodSeconds: 30
+            httpGet:
+              path: /readyz
+              port: 8081
+            timeoutSeconds: 2
+            failureThreshold: 1
+            successThreshold: 1
+        livenessProbe:
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            httpGet:
+              path: /healthz
+              port: 8081
+            timeoutSeconds: 5
+            failureThreshold: 3
+            successThreshold: 1
+        
